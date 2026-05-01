@@ -87,11 +87,22 @@ export async function countEvents(filters = {}, options = {}) {
  * @returns {Promise<Array<Object>>}
  */
 export async function listEvents(filters = {}, options = {}) {
-  const { orderBy = "id", order = "asc", trx } = options;
+  const { orderBy = "id", order = "asc", limit, offset, trx } = options;
 
   const qb = baseQuery(trx).select("*");
 
-  // TODO (required project work): apply supported filters
+  // WEEK 3 TASK: Apply search filter
+  if (filters.search) {
+    qb.where("title", "ilike", `%${filters.search}%`);
+  }
+
+  // WEEK 3 TASK: Apply Pagination
+  if (limit !== undefined) {
+    qb.limit(limit);
+  }
+  if (offset !== undefined) {
+    qb.offset(offset);
+  }
 
   qb.orderBy(orderBy, String(order).toLowerCase() === "desc" ? "desc" : "asc");
 
