@@ -33,6 +33,12 @@ function baseQuery(trx = db) {
   return trx(TABLE);
 }
 
+function applyFilters(qb, filters = {}) {
+  if (filters.search) {
+    qb.where("title", "ilike", `%${filters.search}%`);
+  }
+  return qb;
+}
 /**
  * Count events matching optional filters.
  *
@@ -49,12 +55,7 @@ export async function countEvents(filters = {}, options = {}) {
   const { trx } = options;
   const qb = baseQuery(trx);
 
-  // TODO (required project work): apply supported filters when filter features are implemented
-  // WEEK 3 TASK: Apply search filter if the user provided one
-  if (filters.search) {
-    // 'ilike' makes the search case-insensitive in PostgreSQL
-    qb.where("title", "ilike", `%${filters.search}%`);
-  }
+  applyFilters(qb, filters);
 
   const row = await qb.count({ count: "*" }).first();
   const count = row?.count ?? row?.["count(*)"] ?? 0;
@@ -72,29 +73,13 @@ export async function countEvents(filters = {}, options = {}) {
  * - Page calculation should be handled at API/controller level
  *
  * @param {Object} [filters={}]
- * @param {string} [filters.currency]
- * @param {number} [filters.minPrice]
- * @param {number} [filters.maxPrice]
- * @param {string} [filters.search]
- *
  * @param {Object} [options={}]
- * @param {number} [options.limit]
- * @param {number} [options.offset]
- * @param {string} [options.orderBy="id"]
- * @param {"asc"|"desc"} [options.order="asc"]
- * @param {import("knex").Knex} [options.trx]
- *
  * @returns {Promise<Array<Object>>}
  */
 export async function listEvents(filters = {}, options = {}) {
   const { orderBy = "id", order = "asc", limit, offset, trx } = options;
-
   const qb = baseQuery(trx).select("*");
-
-  // WEEK 3 TASK: Apply search filter
-  if (filters.search) {
-    qb.where("title", "ilike", `%${filters.search}%`);
-  }
+  applyFilters(qb, filters);
 
   // WEEK 3 TASK: Apply Pagination
   if (limit !== undefined) {
@@ -109,23 +94,10 @@ export async function listEvents(filters = {}, options = {}) {
   return qb;
 }
 
-/**
- * Find a single event by id.
- *
- * This is a working example of a model-layer "read one" function.
- *
- * @param {number|string} id
- * @param {Object} [options={}]
- * @param {import("knex").Knex} [options.trx]
- *
- * @returns {Promise<Object|null>}
- */
 export async function findEventById(id, { trx } = {}) {
   const row = await baseQuery(trx).where({ id }).first();
-
   return row ?? null;
 }
-
 /**
  * OPTIONAL STRUCTURE PLACEHOLDER
  *
