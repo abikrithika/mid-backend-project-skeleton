@@ -1,24 +1,44 @@
+import { z } from "zod";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { findUserByEmail, createUser, findUserById } from "#models/users.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+if (!JWT_SECRET) {
+  console.error("FATAL ERROR: JWT_SECRET is not defined in the environment.");
+  process.exit(1);
+}
+
+const signupSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
 export async function signup(req, res, next) {
   try {
-    const { firstName, lastName, email, password } = req.body;
+    const validatedData = signupSchema.parse(req.body);
 
-    const existingUser = await findUserByEmail(email);
+    const existingUser = await findUserByEmail(validatedData.email);
     if (existingUser) {
-      return res.status(400).json({ error: "Email is already in use" });
+      return res
+        .status(409)
+        .json({ error: { message: "Email is already registered" } });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(validatedData.password, 10);
 
     const newUser = await createUser({
-      firstName,
-      lastName,
-      email,
+      firstName: validatedData.firstName,
+      lastName: validatedData.lastName,
+      email: validatedData.email,
       passwordHash,
     });
 
@@ -30,16 +50,23 @@ export async function signup(req, res, next) {
 
 export async function login(req, res, next) {
   try {
-    const { email, password } = req.body;
+    const validatedData = loginSchema.parse(req.body);
 
-    const user = await findUserByEmail(email);
+    const user = await findUserByEmail(validatedData.email);
     if (!user) {
-      return res.status(401).json({ error: "Invalid email or password" });
+      return res
+        .status(401)
+        .json({ error: { message: "Invalid email or password" } });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    const isPasswordValid = await bcrypt.compare(
+      validatedData.password,
+      user.password_hash,
+    );
     if (!isPasswordValid) {
-      return res.status(401).json({ error: "Invalid email or password" });
+      return res
+        .status(401)
+        .json({ error: { message: "Invalid email or password" } });
     }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
@@ -67,7 +94,7 @@ export async function getMe(req, res, next) {
     const user = await findUserById(req.user.userId);
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: { message: "User not found" } });
     }
 
     res.json({ data: user });
