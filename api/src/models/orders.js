@@ -1,4 +1,4 @@
-import db from "../db/db.js";
+import db from "#configs/database.js";
 
 export async function getOrdersByUserId(userId) {
   return await db("orders")
