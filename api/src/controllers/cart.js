@@ -1,6 +1,8 @@
+import { z } from "zod";
 import {
-  getActiveCartByUserId,
   createCart,
+  getActiveCartByUserId,
+  getCartById,
   getCartItems,
   getCartItemByEventId,
   addCartItem,
@@ -9,19 +11,36 @@ import {
   removeCartItem,
 } from "#models/cart.js";
 
+const addCartItemSchema = z.object({
+  eventId: z.number().int().positive(),
+  quantity: z.number().int().positive(),
+});
+
+const updateCartItemSchema = z.object({
+  quantity: z.number().int().nonnegative(),
+});
+
+async function resolveCart(req) {
+  const userId = req.user ? req.user.userId : null;
+  const guestCartId = req.headers["x-cart-id"];
+
+  let cart = null;
+
+  if (userId) {
+    cart = await getActiveCartByUserId(userId);
+  } else if (guestCartId) {
+    cart = await getCartById(guestCartId);
+  }
+
+  if (!cart) {
+    cart = await createCart(userId);
+  }
+  return cart;
+}
+
 export async function getCart(req, res, next) {
   try {
-    const userId = req.user ? req.user.userId : null;
-
-    let cart = null;
-    if (userId) {
-      cart = await getActiveCartByUserId(userId);
-    }
-
-    if (!cart) {
-      cart = await createCart(userId);
-    }
-
+    const cart = await resolveCart(req);
     const items = await getCartItems(cart.id);
 
     res.json({
@@ -38,23 +57,17 @@ export async function getCart(req, res, next) {
 
 export async function addItemToCart(req, res, next) {
   try {
-    const { eventId, quantity } = req.body;
-    const userId = req.user ? req.user.userId : null;
+    const { eventId, quantity } = addCartItemSchema.parse(req.body);
 
-    let cart = null;
-    if (userId) {
-      cart = await getActiveCartByUserId(userId);
-    }
-    if (!cart) {
-      cart = await createCart(userId);
-    }
-
+    const cart = await resolveCart(req);
     const existingItem = await getCartItemByEventId(cart.id, eventId);
 
     let cartItem;
     if (existingItem) {
-      const newQuantity = existingItem.quantity + quantity;
-      cartItem = await updateCartItemQuantity(existingItem.id, newQuantity);
+      cartItem = await updateCartItemQuantity(
+        existingItem.id,
+        existingItem.quantity + quantity,
+      );
     } else {
       cartItem = await addCartItem(cart.id, eventId, quantity);
     }
@@ -67,21 +80,10 @@ export async function addItemToCart(req, res, next) {
 
 export async function updateItemQuantity(req, res, next) {
   try {
-    const { itemId } = req.params;
-    const { quantity } = req.body;
-    const userId = req.user ? req.user.userId : null;
+    const itemId = parseInt(req.params.itemId, 10);
+    const { quantity } = updateCartItemSchema.parse(req.body);
 
-    let cart = null;
-    if (userId) {
-      cart = await getActiveCartByUserId(userId);
-    }
-
-    if (!cart) {
-      return res
-        .status(404)
-        .json({ error: { message: "Active cart not found." } });
-    }
-
+    const cart = await resolveCart(req);
     const item = await getCartItemById(itemId);
 
     if (!item || item.cart_id !== cart.id) {

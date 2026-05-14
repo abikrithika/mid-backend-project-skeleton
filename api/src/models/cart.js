@@ -58,13 +58,16 @@ export async function updateCartItemQuantity(
   return updatedItem;
 }
 
-
 export async function getCartItemById(cartItemId, { trx = db } = {}) {
-    const row = await trx("cart_item").where({ id: cartItemId }).first();
-    return row ?? null;
+  const row = await trx("cart_item").where({ id: cartItemId }).first();
+  return row ?? null;
 }
 
-
 export async function removeCartItem(cartItemId, { trx = db } = {}) {
-    await trx("cart_item").where({ id: cartItemId }).del();
+  await trx("cart_item").where({ id: cartItemId }).del();
+}
+
+export async function getCartById(cartId, { trx = db } = {}) {
+  const row = await trx("cart").where({ id: cartId }).first();
+  return row ?? null;
 }

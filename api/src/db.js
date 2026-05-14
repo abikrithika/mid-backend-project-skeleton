@@ -13,8 +13,8 @@ const pool = new Pool({
 // Test the connection immediately when the server starts
 pool
   .connect()
-  .then(() => console.log("✅ Successfully connected to PostgreSQL Database!"))
-  .catch((err) => console.error("❌ Database connection error:", err.stack));
+  .then(() => console.log("Successfully connected to PostgreSQL Database!"))
+  .catch((err) => console.error("Database connection error:", err.stack));
 
 // Export it so we can use it in our endpoints later
 module.exports = {
