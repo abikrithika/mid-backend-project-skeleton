@@ -9,6 +9,7 @@ import {
   updateCartItemQuantity,
   getCartItemById,
   removeCartItem,
+  checkoutCart,
 } from "#models/cart.js";
 
 const addCartItemSchema = z.object({
@@ -100,6 +101,39 @@ export async function updateItemQuantity(req, res, next) {
     const updatedItem = await updateCartItemQuantity(itemId, quantity);
     res.json({ data: updatedItem });
   } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteCartItem(req, res, next) {
+  try {
+    const itemId = parseInt(req.params.itemId, 10);
+    await removeCartItem(itemId);
+    res.status(200).json({ data: { message: "Item removed successfully" } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function processCheckout(req, res, next) {
+  try {
+    const cart = await resolveCart(req);
+    const userId = req.user ? req.user.userId : null;
+
+    const order = await checkoutCart(cart.id, userId);
+
+    res.status(201).json({
+      data: {
+        message: "Checkout successful",
+        order,
+      },
+    });
+  } catch (error) {
+    if (error.message === "Cart is empty") {
+      return res
+        .status(400)
+        .json({ error: { message: "Cannot checkout an empty cart." } });
+    }
     next(error);
   }
 }

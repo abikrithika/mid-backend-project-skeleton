@@ -2,7 +2,6 @@ export function up(knex) {
   return knex.schema
     .createTable("orders", (table) => {
       table.increments("id").primary();
-
       table
         .integer("user_id")
         .unsigned()
@@ -29,7 +28,6 @@ export function up(knex) {
         .inTable("event")
         .onDelete("CASCADE");
       table.integer("quantity").notNullable();
-
       table.decimal("price_at_purchase", 10, 2).notNullable();
     });
 }

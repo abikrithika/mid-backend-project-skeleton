@@ -1,4 +1,4 @@
-import db from "#configs/database.js";
+import db from "../db/db.js";
 
 export async function getActiveCartByUserId(userId, { trx = db } = {}) {
   const row = await trx("cart")
@@ -70,4 +70,42 @@ export async function removeCartItem(cartItemId, { trx = db } = {}) {
 export async function getCartById(cartId, { trx = db } = {}) {
   const row = await trx("cart").where({ id: cartId }).first();
   return row ?? null;
+}
+
+export async function checkoutCart(cartId, userId = null) {
+  return await db.transaction(async (trx) => {
+    const cartItems = await trx("cart_item")
+      .join("event", "cart_item.event_id", "event.id")
+      .where("cart_item.cart_id", cartId)
+      .select("cart_item.event_id", "cart_item.quantity", "event.price");
+
+    if (cartItems.length === 0) {
+      throw new Error("Cart is empty");
+    }
+
+    const totalAmount = cartItems.reduce((total, item) => {
+      return total + item.price * item.quantity;
+    }, 0);
+
+    const [newOrder] = await trx("orders")
+      .insert({
+        user_id: userId,
+        total_amount: totalAmount,
+        status: "completed",
+      })
+      .returning("*");
+
+    const orderItemsToInsert = cartItems.map((item) => ({
+      order_id: newOrder.id,
+      event_id: item.event_id,
+      quantity: item.quantity,
+      price_at_purchase: item.price,
+    }));
+    await trx("order_items").insert(orderItemsToInsert);
+
+    await trx("cart_item").where("cart_id", cartId).del();
+    await trx("cart").where("id", cartId).update({ status: "checked_out" });
+
+    return newOrder;
+  });
 }
